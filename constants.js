@@ -1,0 +1,5 @@
+exports.EVENTS = {
+    GLOBAL: 'GLOBAL',
+    MEMORY: 'MEMORY',
+    AUTHENTICATE: 'AUTHENTICATE'
+}

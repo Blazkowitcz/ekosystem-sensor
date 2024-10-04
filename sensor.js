@@ -1,89 +1,73 @@
-const net = require("net");
+require('dotenv').config();
 const os = require('os');
+const { EVENTS } = require('./constants');
 const nodeDiskInfo = require('node-disk-info');
+const io = require('socket.io')(process.env.PORT);
 
-const port = 3001;
+/**
+ * Socket on connection
+ */
+io.on('connection', (socket) => {
+  /**
+   * Socket on Authenticate with password
+   */
+  socket.on(EVENTS.AUTHENTICATE, (providedPassword) => {
+    if (providedPassword === process.env.TOKEN) {
+      
+      /**
+       * Socket on global message
+       * send global system informations
+       */
+      socket.on(EVENTS.GLOBAL, () => {
+        socket.emit(EVENTS.GLOBAL, getGlobalInformations());
+      });
 
-const server = net.createServer((socket) => {
-    console.log("Client connected");
-    const result = {
-        processor: os.cpus()[0].model,
-        cores: os.cpus().length / 2,
-        architecture: os.machine(),
-        hostname: os.hostname(),
-        platform: os.platform(),
-        release: os.release(),
-        type: os.type(),
-        totalmem: formatBytes(os.totalmem()),
-        networkInterfaces: os.networkInterfaces(),
-        disks: nodeDiskInfo.getDiskInfoSync().filter((disk) => 
-            !disk.mounted.includes('/dev') && 
-            !disk.mounted.includes('/var') &&
-            !disk.mounted.includes('/run') &&
-            !disk.mounted.includes('/home') &&
-            !disk.mounted.includes('/boot') &&
-            !disk.mounted.includes('/tmp')
-        ).map((disk) => {
-            return {
-                mounted: disk.mounted,
-                blocks: disk.blocks,
-                capacity: disk.capacity,
-                used: disk.used,
-                available: disk.available,
-                filesystem: disk.filesystem
-            }
-        })
+      /**
+       * Socket on memories message
+       * send memories system informations
+       */
+      socket.on(EVENTS.MEMORY, () => {
+        socket.emit(EVENTS.MEMORY, {})
+      });
+    } else {
+      socket.disconnect();
     }
-
-    socket.write(new Buffer.from(JSON.stringify(result)))
-
-    socket.on("data", (data) => {
-        const strData = data.toString();
-        console.log(`Received: ${strData}`);
-
-        const command = strData.split(",");
-        const operator = command[0];
-        const operand1 = parseFloat(command[1]);
-        const operand2 = parseFloat(command[2]);
-        let result;
-
-        switch (operator) {
-            case "add":
-                result = operand1 + operand2;
-                break;
-            case "sub":
-                result = operand1 - operand2;
-                break;
-        }
-
-        socket.write(result.toString());
-    });
-
-    socket.on("end", () => {
-        console.log("Client disconnected");
-    });
-
-    socket.on("error", (error) => {
-        console.log(`Socket Error: ${error.message}`);
-    });
+  });
 });
 
-server.on("error", (error) => {
-    console.log(`Server Error: ${error.message}`);
-});
-
-server.listen(port, () => {
-    console.log(`TCP socket server is running on port: ${port}`);
-});
-
+/**
+ * Format big integer to bytes string
+ * @param {BigInteger} bytes 
+ * @param {Number} decimals 
+ * @returns 
+ */
 function formatBytes(bytes, decimals = 2) {
-    if (!+bytes) return '0 Bytes'
+  if (!+bytes) return '0 Bytes'
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
 
-    const k = 1024
-    const dm = decimals < 0 ? 0 : decimals
-    const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
-
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+/**
+ * Return System global informations
+ * @returns 
+ */
+function getGlobalInformations() {
+  const cpuInfo = os.cpus();
+  return {
+    processor: cpuInfo[0].model,
+    cores: cpuInfo.length,
+    architecture: os.machine(),
+    hostname: os.hostname(),
+    platform: os.platform(),
+    release: os.release(),
+    type: os.type(),
+    totalmem: formatBytes(os.totalmem()),
+    networkInterfaces: os.networkInterfaces(),
+    disks: nodeDiskInfo.getDiskInfoSync()
+      .filter(disk => !['/dev', '/var', '/run', '/home', '/boot', '/tmp'].some(path => disk.mounted.includes(path)))
+      .map(({ mounted, blocks, capacity, used, available, filesystem }) => ({ mounted, blocks, capacity, used, available, filesystem }))
+  }
 }
