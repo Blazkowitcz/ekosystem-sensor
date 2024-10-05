@@ -13,7 +13,7 @@ io.on('connection', (socket) => {
    */
   socket.on(EVENTS.AUTHENTICATE, (providedPassword) => {
     if (providedPassword === process.env.TOKEN) {
-      
+      socket.emit(EVENTS.AUTHENTICATE, true);
       /**
        * Socket on global message
        * send global system informations
