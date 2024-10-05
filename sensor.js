@@ -24,10 +24,10 @@ io.on('connection', (socket) => {
 
       /**
        * Socket on memories message
-       * send memories system informations
+       * send light system informations (cpu usage, max memory, free memory)
        */
-      socket.on(EVENTS.MEMORY, () => {
-        socket.emit(EVENTS.MEMORY, {})
+      socket.on(EVENTS.LIGHT, () => {
+        socket.emit(EVENTS.LIGHT, getLightInformations());
       });
     } else {
       socket.disconnect();
@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
  * Format big integer to bytes string
  * @param {BigInteger} bytes 
  * @param {Number} decimals 
- * @returns 
+ * @returns {String}
  */
 function formatBytes(bytes, decimals = 2) {
   if (!+bytes) return '0 Bytes'
@@ -52,7 +52,7 @@ function formatBytes(bytes, decimals = 2) {
 
 /**
  * Return System global informations
- * @returns 
+ * @returns {Object}
  */
 function getGlobalInformations() {
   const cpuInfo = os.cpus();
@@ -69,5 +69,17 @@ function getGlobalInformations() {
     disks: nodeDiskInfo.getDiskInfoSync()
       .filter(disk => !['/dev', '/var', '/run', '/home', '/boot', '/tmp'].some(path => disk.mounted.includes(path)))
       .map(({ mounted, blocks, capacity, used, available, filesystem }) => ({ mounted, blocks, capacity, used, available, filesystem }))
+  }
+}
+
+/**
+ * Return System light informations
+ * @returns {Object}
+ */
+function getLightInformations() {
+  return {
+    totalMemory: formatBytes(os.totalmem()),
+    freeMemory: formatBytes(os.freemem()),
+    ratio: `${(os.freemem() * 100) / os.totalmem()} %`
   }
 }
